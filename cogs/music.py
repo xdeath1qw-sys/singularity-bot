@@ -22,7 +22,7 @@ PLATFORM_ICONS = {
 }
 
 YTDL_OPTIONS = {
-    "format": "bestaudio/best",
+    "format": "worstaudio/worst",
     "noplaylist": True,
     "quiet": True,
     "no_warnings": True,
