@@ -86,6 +86,9 @@ async def on_app_command_error(interaction: discord.Interaction, error: app_comm
 
 @bot.event
 async def on_ready():
+    # Отключаемся от всех голосовых каналов при перезапуске
+    for vc in bot.voice_clients:
+        await vc.disconnect(force=True)
     print(f"✅ Бот запущен как {bot.user} (ID: {bot.user.id})")
 
     # ─── Отчёт об успешном перезапуске ────────────────────────────

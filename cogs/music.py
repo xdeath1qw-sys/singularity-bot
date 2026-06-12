@@ -285,7 +285,9 @@ class Music(commands.Cog):
 
         query, platform = queue.pop(0)
         vc = discord.utils.get(self.bot.voice_clients, guild__id=guild_id)
-        if not vc:
+        if not vc or not vc.is_connected():
+            self.current.pop(guild_id, None)
+            self.queues[guild_id] = []
             return
 
         try:
@@ -298,6 +300,8 @@ class Music(commands.Cog):
         self.current[guild_id] = source
 
         def after_playing(error):
+            if error:
+                print(f"Ошибка плеера: {error}")
             asyncio.run_coroutine_threadsafe(self.play_next(guild_id, channel), self.bot.loop)
 
         vc.play(source, after=after_playing)
