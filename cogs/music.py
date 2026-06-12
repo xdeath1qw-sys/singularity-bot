@@ -22,7 +22,7 @@ PLATFORM_ICONS = {
 }
 
 YTDL_OPTIONS = {
-    "format": "140/251/250/249/worst",
+    "format": "bestaudio/best",
     "noplaylist": True,
     "quiet": True,
     "no_warnings": True,
@@ -31,6 +31,11 @@ YTDL_OPTIONS = {
     "cookiefile": "cookies.txt" if os.path.exists("cookies.txt") else None,
     "geo_bypass": True,
     "age_limit": 99,
+    "extractor_args": {
+        "youtube": {
+            "player_client": ["android", "web"],
+        }
+    },
 }
 
 FFMPEG_OPTIONS = {
