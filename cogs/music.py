@@ -4,13 +4,14 @@ from discord import app_commands
 import yt_dlp
 import asyncio
 import os
+import re
 
 # ─── Префиксы поиска по платформам ───────────────────────────────
 SEARCH_PREFIXES = {
     "youtube":    "ytsearch:",
     "soundcloud": "scsearch:",
-    "yandex":     "ytsearch:",   # yt-dlp не поддерживает Яндекс напрямую — fallback на YT
-    "spotify":    "ytsearch:",   # Spotify требует авторизации — ищем по названию на YT
+    "yandex":     "ytsearch:",
+    "spotify":    "ytsearch:",
 }
 
 PLATFORM_ICONS = {
@@ -18,29 +19,56 @@ PLATFORM_ICONS = {
     "soundcloud": "🔶 SoundCloud",
     "yandex":     "🎵 Яндекс.Музыка",
     "spotify":    "🟢 Spotify",
-    "auto":       "🎵",
+    "auto":       "🎵 Авто",
 }
 
-YTDL_OPTIONS = {
-    "format": "bestaudio/best",
+# ─── Определяем платформу по ссылке ──────────────────────────────
+def detect_platform(url: str) -> str:
+    if "youtube.com" in url or "youtu.be" in url:
+        return "youtube"
+    if "soundcloud.com" in url:
+        return "soundcloud"
+    if "spotify.com" in url:
+        return "spotify"
+    if "music.yandex" in url or "yandex.ru/music" in url:
+        return "yandex"
+    if "bandcamp.com" in url:
+        return "bandcamp"
+    if "twitch.tv" in url:
+        return "twitch"
+    if "vk.com" in url:
+        return "vk"
+    return "direct"
+
+# ─── Порядок попыток для авто-режима ─────────────────────────────
+AUTO_SEARCH_ORDER = [
+    "ytsearch:",   # YouTube
+    "scsearch:",   # SoundCloud
+]
+
+_ytdl_opts: dict = {
+    "format": "bestaudio[ext=webm]/bestaudio[ext=m4a]/bestaudio/best",
     "noplaylist": True,
     "quiet": True,
     "no_warnings": True,
     "default_search": "ytsearch",
     "source_address": "0.0.0.0",
-    "cookiefile": "cookies.txt" if os.path.exists("cookies.txt") else None,
     "geo_bypass": True,
     "age_limit": 99,
     "extractor_args": {
         "youtube": {
-            "player_client": ["android", "web"],
+            "player_client": ["ios", "web"],
         }
     },
 }
+if os.path.exists("cookies.txt"):
+    _ytdl_opts["cookiefile"] = "cookies.txt"
+
+YTDL_OPTIONS = _ytdl_opts
 
 FFMPEG_OPTIONS = {
-    "before_options": "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5",
-    "options": "-vn",
+    "before_options": "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -nostdin",
+    "options": "-vn -ar 48000 -ac 2 -ab 192k",
 }
 
 ytdl = yt_dlp.YoutubeDL(YTDL_OPTIONS)
@@ -53,8 +81,23 @@ def is_url(query: str) -> bool:
 def build_query(query: str, platform: str) -> str:
     if is_url(query):
         return query
+    # Spotify ссылка — вытащим название трека и ищем на YT
     prefix = SEARCH_PREFIXES.get(platform, "ytsearch:")
     return f"{prefix}{query}"
+
+
+def extract_spotify_query(url: str) -> str:
+    """Пытается вытащить название трека из Spotify URL через yt-dlp"""
+    try:
+        with yt_dlp.YoutubeDL({"quiet": True, "no_warnings": True}) as ydl:
+            info = ydl.extract_info(url, download=False)
+            title = info.get("title", "")
+            artist = info.get("artist") or info.get("uploader", "")
+            if artist and title:
+                return f"{artist} - {title}"
+            return title
+    except Exception:
+        return ""
 
 
 class YTDLSource(discord.PCMVolumeTransformer):
@@ -66,16 +109,65 @@ class YTDLSource(discord.PCMVolumeTransformer):
         self.thumbnail = data.get("thumbnail", "")
         self.duration = data.get("duration", 0)
         self.uploader = data.get("uploader", "")
+        self.extractor = data.get("extractor", "")
 
     @classmethod
-    async def from_query(cls, query: str, platform: str = "youtube", *, loop=None, stream=True):
-        loop = loop or asyncio.get_event_loop()
+    async def from_query(cls, query: str, platform: str = "auto", *, stream=True):
+        loop = asyncio.get_event_loop()
+
+        # ── Прямая ссылка ──────────────────────────────────────────
+        if is_url(query):
+            detected = detect_platform(query)
+
+            # Spotify ссылка — конвертируем в поиск по YT
+            if detected == "spotify":
+                spotify_query = await loop.run_in_executor(None, lambda: extract_spotify_query(query))
+                if spotify_query:
+                    search = f"ytsearch:{spotify_query}"
+                else:
+                    # fallback: просто пробуем через yt-dlp напрямую
+                    search = query
+            else:
+                search = query
+
+            data = await loop.run_in_executor(
+                None, lambda: ytdl.extract_info(search, download=not stream)
+            )
+            if data and "entries" in data:
+                data = data["entries"][0]
+            if not data:
+                raise Exception("Не удалось получить информацию о треке")
+            filename = data["url"] if stream else ytdl.prepare_filename(data)
+            return cls(discord.FFmpegPCMAudio(filename, **FFMPEG_OPTIONS), data=data)
+
+        # ── Авто-режим: пробуем YT → SoundCloud ───────────────────
+        if platform == "auto":
+            last_error = None
+            for prefix in AUTO_SEARCH_ORDER:
+                try:
+                    search = f"{prefix}{query}"
+                    data = await loop.run_in_executor(
+                        None, lambda s=search: ytdl.extract_info(s, download=not stream)
+                    )
+                    if data and "entries" in data:
+                        data = data["entries"][0]
+                    if data:
+                        filename = data["url"] if stream else ytdl.prepare_filename(data)
+                        return cls(discord.FFmpegPCMAudio(filename, **FFMPEG_OPTIONS), data=data)
+                except Exception as e:
+                    last_error = e
+                    continue
+            raise Exception(f"Не найдено ни на одной платформе. Последняя ошибка: {last_error}")
+
+        # ── Конкретная платформа ───────────────────────────────────
         search = build_query(query, platform)
         data = await loop.run_in_executor(
             None, lambda: ytdl.extract_info(search, download=not stream)
         )
-        if "entries" in data:
+        if data and "entries" in data:
             data = data["entries"][0]
+        if not data:
+            raise Exception("Трек не найден")
         filename = data["url"] if stream else ytdl.prepare_filename(data)
         return cls(discord.FFmpegPCMAudio(filename, **FFMPEG_OPTIONS), data=data)
 
@@ -83,7 +175,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
 class Music(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.queues: dict[int, list] = {}      # [(query, platform), ...]
+        self.queues: dict[int, list] = {}
         self.current: dict[int, YTDLSource] = {}
 
     def get_queue(self, guild_id: int) -> list:
@@ -104,6 +196,18 @@ class Music(commands.Cog):
         embed.add_field(name="Длительность", value=self.format_duration(source.duration))
         if source.uploader:
             embed.add_field(name="Автор", value=source.uploader)
+        # Показываем источник
+        extractor = source.extractor.lower() if source.extractor else ""
+        if "youtube" in extractor:
+            embed.add_field(name="Источник", value="🎬 YouTube")
+        elif "soundcloud" in extractor:
+            embed.add_field(name="Источник", value="🔶 SoundCloud")
+        elif "bandcamp" in extractor:
+            embed.add_field(name="Источник", value="🎸 Bandcamp")
+        elif "twitch" in extractor:
+            embed.add_field(name="Источник", value="🟣 Twitch")
+        elif "vk" in extractor:
+            embed.add_field(name="Источник", value="💙 VK")
         if source.thumbnail:
             embed.set_thumbnail(url=source.thumbnail)
         return embed
@@ -122,18 +226,19 @@ class Music(commands.Cog):
         await interaction.response.send_message(f"✅ Подключился к **{channel.name}**")
 
     # ─── /play ────────────────────────────────────────────────────────
-    @app_commands.command(name="play", description="Играть музыку (YouTube, SoundCloud, Spotify, прямая ссылка)")
+    @app_commands.command(name="play", description="Играть музыку — название, ссылка (YT, SC, Spotify, Bandcamp, VK, Twitch...)")
     @app_commands.describe(
-        query="Название трека или ссылка",
-        platform="Платформа поиска (по умолчанию YouTube)"
+        query="Название трека, ссылка на YouTube/SoundCloud/Spotify/Bandcamp/VK/Twitch и др.",
+        platform="Платформа поиска (по умолчанию Авто — YT→SC)"
     )
     @app_commands.choices(platform=[
+        app_commands.Choice(name="🎵 Авто (YouTube → SoundCloud)", value="auto"),
         app_commands.Choice(name="🎬 YouTube", value="youtube"),
         app_commands.Choice(name="🔶 SoundCloud", value="soundcloud"),
         app_commands.Choice(name="🟢 Spotify (поиск через YT)", value="spotify"),
         app_commands.Choice(name="🎵 Яндекс.Музыка (поиск через YT)", value="yandex"),
     ])
-    async def play(self, interaction: discord.Interaction, query: str, platform: str = "youtube"):
+    async def play(self, interaction: discord.Interaction, query: str, platform: str = "auto"):
         if not interaction.user.voice:
             await interaction.response.send_message("❌ Сначала зайди в голосовой канал.", ephemeral=True)
             return
@@ -155,7 +260,7 @@ class Music(commands.Cog):
             return
 
         try:
-            source = await YTDLSource.from_query(query, platform, loop=self.bot.loop)
+            source = await YTDLSource.from_query(query, platform)
         except Exception as e:
             await interaction.followup.send(f"❌ Не удалось загрузить: `{e}`")
             return
@@ -184,7 +289,7 @@ class Music(commands.Cog):
             return
 
         try:
-            source = await YTDLSource.from_query(query, platform, loop=self.bot.loop)
+            source = await YTDLSource.from_query(query, platform)
         except Exception as e:
             await channel.send(f"❌ Не удалось загрузить трек: `{e}`")
             await self.play_next(guild_id, channel)
