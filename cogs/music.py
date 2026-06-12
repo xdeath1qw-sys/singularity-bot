@@ -10,8 +10,8 @@ import re
 SEARCH_PREFIXES = {
     "youtube":    "ytsearch:",
     "soundcloud": "scsearch:",
-    "yandex":     "ytsearch:",
-    "spotify":    "ytsearch:",
+    "yandex":     "scsearch:",
+    "spotify":    "scsearch:",
 }
 
 PLATFORM_ICONS = {
@@ -43,7 +43,6 @@ def detect_platform(url: str) -> str:
 # ─── Порядок попыток для авто-режима ─────────────────────────────
 AUTO_SEARCH_ORDER = [
     "scsearch:",   # SoundCloud (не требует авторизации)
-    "ytsearch:",   # YouTube (fallback)
 ]
 
 _ytdl_opts: dict = {
