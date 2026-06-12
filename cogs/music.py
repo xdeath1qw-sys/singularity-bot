@@ -3,6 +3,7 @@ from discord.ext import commands
 from discord import app_commands
 import yt_dlp
 import asyncio
+import os
 
 # ─── Префиксы поиска по платформам ───────────────────────────────
 SEARCH_PREFIXES = {
@@ -21,13 +22,14 @@ PLATFORM_ICONS = {
 }
 
 YTDL_OPTIONS = {
-    "format": "bestaudio[ext=webm]/bestaudio[ext=m4a]/bestaudio/best",
+    "format": "bestaudio/best",
     "noplaylist": True,
     "quiet": True,
     "no_warnings": True,
     "default_search": "ytsearch",
     "source_address": "0.0.0.0",
-    "cookiefile": None,
+    "cookiefile": "cookies.txt" if os.path.exists("cookies.txt") else None,
+    "extractor_args": {"youtube": {"skip": ["dash", "hls"]}},
 }
 
 FFMPEG_OPTIONS = {
