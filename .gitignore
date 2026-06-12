@@ -1,0 +1,6 @@
+.env
+whitelist.txt
+logs_config.json
+restart_pending.json
+__pycache__/
+*.pyc

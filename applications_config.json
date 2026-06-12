@@ -1,0 +1,46 @@
+{
+  "1307035051866853477": {
+    "applications": [
+      {
+        "name": "Заявка в клан",
+        "description": "Нажми чтобы подать заявку.",
+        "review_channel_id": 1511801716507672616,
+        "accept_role_id": 1511801657447415898,
+        "questions": [
+          "Как тебя зовут?",
+          "Сколько тебе лет?",
+          "Почему хочешь вступить в клан?",
+          "Твой опыт?",
+          "Откуда узнал о нас?"
+        ]
+      },
+      {
+        "name": "Заявка на медиа",
+        "description": "Нажми чтобы подать заявку.",
+        "review_channel_id": 1511823543074295938,
+        "accept_role_id": 1511801652493946880,
+        "questions": [
+          "Как тебя зовут?",
+          "Какой контент ты создаёшь?",
+          "Ссылка на твои работы?",
+          "Сколько подписчиков?",
+          "Почему хочешь стать медиа?"
+        ]
+      },
+      {
+        "name": "Заявка на Creator гп",
+        "description": "Нажми чтобы подать заявку.",
+        "review_channel_id": 1513932298532290692,
+        "accept_role_id": 1513930236998320218,
+        "questions": [
+          "Сколько в неделю будеш скидивать рп?",
+          "На какую версию будите на 1.16.5/1.21.4"
+        ]
+      }
+    ],
+    "panel_channel_id": 1511801738569715762,
+    "panel_title": "Набор",
+    "panel_description": "Тут вы можете подать набор в клан, а также стать на медиа, чтобы кидать свои ролики в канал медии и стать Creatorom rp",
+    "panel_image": "https://images-ext-1.discordapp.net/external/fE5-_54h3npFMwfT7tZKPrB_QAPQ0ntwoutagHO7_Vw/%3Fwidth%3D375%26height%3D211/https/images-ext-1.discordapp.net/external/_uWw0cxhkYci_1oppVJnDQgt0RpX8sx4qPV_yCr9zRE/https/i.pinimg.com/originals/51/cf/37/51cf3728f4973edb78b892bbc323467e.gif?width=281&height=158"
+  }
+}
