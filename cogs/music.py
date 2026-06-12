@@ -22,14 +22,15 @@ PLATFORM_ICONS = {
 }
 
 YTDL_OPTIONS = {
-    "format": "worstaudio/worst",
+    "format": "140/251/250/249/worst",
     "noplaylist": True,
     "quiet": True,
     "no_warnings": True,
     "default_search": "ytsearch",
     "source_address": "0.0.0.0",
     "cookiefile": "cookies.txt" if os.path.exists("cookies.txt") else None,
-    "extractor_args": {"youtube": {"skip": ["dash", "hls"]}},
+    "geo_bypass": True,
+    "age_limit": 99,
 }
 
 FFMPEG_OPTIONS = {
