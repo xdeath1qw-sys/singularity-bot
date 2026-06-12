@@ -70,6 +70,9 @@ FFMPEG_OPTIONS = {
     "options": "-vn -ar 48000 -ac 2 -ab 192k",
 }
 
+# Явный путь к ffmpeg
+FFMPEG_EXECUTABLE = "/usr/bin/ffmpeg" if os.path.exists("/usr/bin/ffmpeg") else "ffmpeg"
+
 ytdl = yt_dlp.YoutubeDL(YTDL_OPTIONS)
 
 
@@ -137,7 +140,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
             if not data:
                 raise Exception("Не удалось получить информацию о треке")
             filename = data["url"] if stream else ytdl.prepare_filename(data)
-            return cls(discord.FFmpegPCMAudio(filename, **FFMPEG_OPTIONS), data=data)
+            return cls(discord.FFmpegPCMAudio(filename, executable=FFMPEG_EXECUTABLE, **FFMPEG_OPTIONS), data=data)
 
         # ── Авто-режим: пробуем YT → SoundCloud ───────────────────
         if platform == "auto":
@@ -152,7 +155,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
                         data = data["entries"][0]
                     if data:
                         filename = data["url"] if stream else ytdl.prepare_filename(data)
-                        return cls(discord.FFmpegPCMAudio(filename, **FFMPEG_OPTIONS), data=data)
+                        return cls(discord.FFmpegPCMAudio(filename, executable=FFMPEG_EXECUTABLE, **FFMPEG_OPTIONS), data=data)
                 except Exception as e:
                     last_error = e
                     continue
@@ -168,7 +171,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
         if not data:
             raise Exception("Трек не найден")
         filename = data["url"] if stream else ytdl.prepare_filename(data)
-        return cls(discord.FFmpegPCMAudio(filename, **FFMPEG_OPTIONS), data=data)
+        return cls(discord.FFmpegPCMAudio(filename, executable=FFMPEG_EXECUTABLE, **FFMPEG_OPTIONS), data=data)
 
 
 class Music(commands.Cog):
