@@ -42,22 +42,22 @@ def detect_platform(url: str) -> str:
 
 # ─── Порядок попыток для авто-режима ─────────────────────────────
 AUTO_SEARCH_ORDER = [
-    "ytsearch:",   # YouTube
-    "scsearch:",   # SoundCloud
+    "scsearch:",   # SoundCloud (не требует авторизации)
+    "ytsearch:",   # YouTube (fallback)
 ]
 
 _ytdl_opts: dict = {
-    "format": "bestaudio[ext=webm]/bestaudio[ext=m4a]/bestaudio/best",
+    "format": "bestaudio/best",
     "noplaylist": True,
     "quiet": True,
     "no_warnings": True,
-    "default_search": "ytsearch",
+    "default_search": "scsearch",
     "source_address": "0.0.0.0",
     "geo_bypass": True,
     "age_limit": 99,
     "extractor_args": {
         "youtube": {
-            "player_client": ["ios", "web"],
+            "player_client": ["ios"],
         }
     },
 }
