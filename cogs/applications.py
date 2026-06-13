@@ -341,6 +341,7 @@ class Applications(commands.Cog):
         description: str,
         image_url: str = None
     ):
+        await interaction.response.defer(ephemeral=True)
         config = load_config(interaction.guild_id)
 
         if not config.get("applications"):
@@ -403,7 +404,7 @@ class Applications(commands.Cog):
         view = ApplicationView(config["applications"], interaction.guild_id)
         await channel.send(embed=embed, view=view)
 
-        await interaction.response.send_message(
+        await interaction.followup.send(
             f"✅ Панель заявок опубликована в {channel.mention}!\n"
             f"Настрой каналы для каждой заявки через `/app_channel`",
             ephemeral=True
@@ -428,6 +429,7 @@ class Applications(commands.Cog):
         review_channel: discord.TextChannel,
         accept_role: discord.Role = None
     ):
+        await interaction.response.defer(ephemeral=True)
         config = load_config(interaction.guild_id)
         apps = config.get("applications", [])
 
@@ -443,7 +445,7 @@ class Applications(commands.Cog):
         msg = f"✅ Заявка **{app_name}** → {review_channel.mention}"
         if accept_role:
             msg += f"\nРоль при принятии: {accept_role.mention}"
-        await interaction.response.send_message(msg, ephemeral=True)
+        await interaction.followup.send(msg, ephemeral=True)
 
     @app_commands.command(name="app_questions", description="Изменить вопросы для заявки (от 2 до 5)")
     @app_commands.describe(
@@ -464,6 +466,7 @@ class Applications(commands.Cog):
         q1: str, q2: str,
         q3: str = None, q4: str = None, q5: str = None
     ):
+        await interaction.response.defer(ephemeral=True)
         config = load_config(interaction.guild_id)
         questions = [q1, q2]
         if q3: questions.append(q3)
@@ -482,7 +485,7 @@ class Applications(commands.Cog):
             description="\n".join(f"`{i+1}.` {q}" for i, q in enumerate(questions)),
             color=discord.Color.green()
         )
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        await interaction.followup.send(embed=embed, ephemeral=True)
 
     @app_commands.command(name="app_info", description="Показать настройки всех заявок")
     @app_commands.checks.has_permissions(administrator=True)
