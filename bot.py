@@ -16,7 +16,6 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 
 # ─── Глобальная проверка канала ───────────────────────────────────
 COMMAND_GROUPS = {
-    "music":      ["play", "pause", "resume", "skip", "stop", "queue", "nowplaying", "volume", "join"],
     "economy":    ["daily", "balance", "pay", "leaderboard", "shop", "buy", "shop_add", "shop_remove", "give_money", "take_money"],
     "moderation": ["kick", "ban", "unban", "mute", "unmute", "clear", "warn", "warns", "warn_remove", "warns_clear", "roleall", "roledown"],
     "profile":    ["me", "userinfo"],
@@ -59,7 +58,6 @@ GUILD_ID = discord.Object(id=1307035051866853477)
 
 async def setup_hook():
     await bot.load_extension("cogs.moderation")
-    await bot.load_extension("cogs.music")
     await bot.load_extension("cogs.security")
     await bot.load_extension("cogs.logs")
     await bot.load_extension("cogs.autorole")

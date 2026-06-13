@@ -270,19 +270,24 @@ class ApplicationSelect(discord.ui.Select):
         super().__init__(
             placeholder="Выбери заявку для подачи",
             options=options,
-            custom_id="app_select"
+            custom_id=f"app_select:{guild_id}"
         )
         self.applications = applications
         self.guild_id = guild_id
 
     async def callback(self, interaction: discord.Interaction):
         selected = self.values[0]
-        app_cfg = next((a for a in self.applications if a["name"] == selected), None)
+
+        # Загружаем актуальный конфиг при каждом взаимодействии
+        config = load_config(interaction.guild_id)
+        applications = config.get("applications", self.applications)
+
+        app_cfg = next((a for a in applications if a["name"] == selected), None)
         if not app_cfg:
             await interaction.response.send_message("❌ Заявка не найдена.", ephemeral=True)
             return
 
-        modal = ApplicationModal(selected, app_cfg, self.guild_id)
+        modal = ApplicationModal(selected, app_cfg, interaction.guild_id)
         await interaction.response.send_modal(modal)
 
 
@@ -296,7 +301,29 @@ class ApplicationView(discord.ui.View):
 class Applications(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        # Регистрируем ReviewView (кнопки принять/отклонить) — timeout=None чтобы работали после перезапуска
         self.bot.add_view(ReviewView())
+
+    async def cog_load(self):
+        # Регистрируем ApplicationView для каждой гильдии из конфига
+        # чтобы select menu работал после перезапуска бота
+        if not os.path.exists(CONFIG_FILE):
+            return
+        try:
+            with open(CONFIG_FILE, "r") as f:
+                all_configs = json.load(f)
+        except Exception:
+            return
+
+        for guild_id_str, config in all_configs.items():
+            applications = config.get("applications", [])
+            if applications:
+                try:
+                    guild_id = int(guild_id_str)
+                    view = ApplicationView(applications, guild_id)
+                    self.bot.add_view(view)
+                except Exception as e:
+                    print(f"[Applications] Не удалось восстановить view для гильдии {guild_id_str}: {e}")
 
     @app_commands.command(name="app_setup", description="Настроить и опубликовать панель заявок")
     @app_commands.describe(
