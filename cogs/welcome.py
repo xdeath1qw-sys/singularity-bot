@@ -6,29 +6,31 @@ import os
 
 CONFIG_FILE = "welcome_config.json"
 
+_config_cache: dict = {}
 
-def load_config(guild_id: int) -> dict:
-    if not os.path.exists(CONFIG_FILE):
+def _load_file(path: str) -> dict:
+    if not os.path.exists(path):
         return {}
     try:
-        with open(CONFIG_FILE, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        return data.get(str(guild_id), {})
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
     except Exception:
         return {}
 
+def _save_file(path: str, data: dict):
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
+
+def load_config(guild_id: int) -> dict:
+    if not _config_cache:
+        _config_cache.update(_load_file(CONFIG_FILE))
+    return _config_cache.get(str(guild_id), {})
 
 def save_config(guild_id: int, config: dict):
-    data = {}
-    if os.path.exists(CONFIG_FILE):
-        try:
-            with open(CONFIG_FILE, "r", encoding="utf-8") as f:
-                data = json.load(f)
-        except Exception:
-            data = {}
-    data[str(guild_id)] = config
-    with open(CONFIG_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
+    if not _config_cache:
+        _config_cache.update(_load_file(CONFIG_FILE))
+    _config_cache[str(guild_id)] = config
+    _save_file(CONFIG_FILE, _config_cache)
 
 
 def build_text(template: str, member: discord.Member) -> str:

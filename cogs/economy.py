@@ -12,29 +12,33 @@ DAILY_AMOUNT = 100       # Монет за /daily
 DAILY_COOLDOWN = 86400   # 24 часа в секундах
 CURRENCY = "💰"
 
+# ─── Кеш в памяти ────────────────────────────────────────────────
+_economy_cache: dict = {}
+_shop_cache: dict = {}
 
-def load_economy(guild_id: int) -> dict:
-    if not os.path.exists(ECONOMY_FILE):
+def _load_file(path: str) -> dict:
+    if not os.path.exists(path):
         return {}
     try:
-        with open(ECONOMY_FILE, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        return data.get(str(guild_id), {})
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
     except Exception:
         return {}
 
+def _save_file(path: str, data: dict):
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
+
+def load_economy(guild_id: int) -> dict:
+    if not _economy_cache:
+        _economy_cache.update(_load_file(ECONOMY_FILE))
+    return _economy_cache.get(str(guild_id), {})
 
 def save_economy(guild_id: int, eco: dict):
-    data = {}
-    if os.path.exists(ECONOMY_FILE):
-        try:
-            with open(ECONOMY_FILE, "r", encoding="utf-8") as f:
-                data = json.load(f)
-        except Exception:
-            data = {}
-    data[str(guild_id)] = eco
-    with open(ECONOMY_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
+    if not _economy_cache:
+        _economy_cache.update(_load_file(ECONOMY_FILE))
+    _economy_cache[str(guild_id)] = eco
+    _save_file(ECONOMY_FILE, _economy_cache)
 
 
 def get_user(eco: dict, user_id: int) -> dict:
@@ -45,27 +49,15 @@ def get_user(eco: dict, user_id: int) -> dict:
 
 
 def load_shop(guild_id: int) -> list:
-    if not os.path.exists(SHOP_FILE):
-        return []
-    try:
-        with open(SHOP_FILE, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        return data.get(str(guild_id), [])
-    except Exception:
-        return []
-
+    if not _shop_cache:
+        _shop_cache.update(_load_file(SHOP_FILE))
+    return _shop_cache.get(str(guild_id), [])
 
 def save_shop(guild_id: int, shop: list):
-    data = {}
-    if os.path.exists(SHOP_FILE):
-        try:
-            with open(SHOP_FILE, "r", encoding="utf-8") as f:
-                data = json.load(f)
-        except Exception:
-            data = {}
-    data[str(guild_id)] = shop
-    with open(SHOP_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
+    if not _shop_cache:
+        _shop_cache.update(_load_file(SHOP_FILE))
+    _shop_cache[str(guild_id)] = shop
+    _save_file(SHOP_FILE, _shop_cache)
 
 
 class Economy(commands.Cog):

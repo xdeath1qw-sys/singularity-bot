@@ -7,23 +7,31 @@ from datetime import datetime
 
 WARNS_FILE = "warns.json"
 
+_warns_cache: dict = {}
+
+def _load_file(path: str) -> dict:
+    if not os.path.exists(path):
+        return {}
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+def _save_file(path: str, data: dict):
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
 
 def load_warns(guild_id: int) -> dict:
-    if not os.path.exists(WARNS_FILE):
-        return {}
-    with open(WARNS_FILE, "r") as f:
-        data = json.load(f)
-    return data.get(str(guild_id), {})
-
+    if not _warns_cache:
+        _warns_cache.update(_load_file(WARNS_FILE))
+    return _warns_cache.get(str(guild_id), {})
 
 def save_warns(guild_id: int, warns: dict):
-    data = {}
-    if os.path.exists(WARNS_FILE):
-        with open(WARNS_FILE, "r") as f:
-            data = json.load(f)
-    data[str(guild_id)] = warns
-    with open(WARNS_FILE, "w") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
+    if not _warns_cache:
+        _warns_cache.update(_load_file(WARNS_FILE))
+    _warns_cache[str(guild_id)] = warns
+    _save_file(WARNS_FILE, _warns_cache)
 
 
 class Warns(commands.Cog):

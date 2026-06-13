@@ -7,41 +7,46 @@ import os
 CONFIG_FILE = "applications_config.json"
 APPS_FILE = "applications_data.json"
 
+# ─── Кеш в памяти — читаем файлы один раз при старте ─────────────
+_config_cache: dict = {}
+_apps_cache: dict = {}
+
+def _load_file(path: str) -> dict:
+    if not os.path.exists(path):
+        return {}
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+def _save_file(path: str, data: dict):
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
+
+def _ensure_cache():
+    if not _config_cache:
+        _config_cache.update(_load_file(CONFIG_FILE))
+    if not _apps_cache:
+        _apps_cache.update(_load_file(APPS_FILE))
 
 def load_config(guild_id: int) -> dict:
-    if not os.path.exists(CONFIG_FILE):
-        return {}
-    with open(CONFIG_FILE, "r") as f:
-        data = json.load(f)
-    return data.get(str(guild_id), {})
-
+    _ensure_cache()
+    return _config_cache.get(str(guild_id), {})
 
 def save_config(guild_id: int, config: dict):
-    data = {}
-    if os.path.exists(CONFIG_FILE):
-        with open(CONFIG_FILE, "r") as f:
-            data = json.load(f)
-    data[str(guild_id)] = config
-    with open(CONFIG_FILE, "w") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
-
+    _ensure_cache()
+    _config_cache[str(guild_id)] = config
+    _save_file(CONFIG_FILE, _config_cache)
 
 def load_apps(guild_id: int) -> dict:
-    if not os.path.exists(APPS_FILE):
-        return {}
-    with open(APPS_FILE, "r") as f:
-        data = json.load(f)
-    return data.get(str(guild_id), {})
-
+    _ensure_cache()
+    return _apps_cache.get(str(guild_id), {})
 
 def save_apps(guild_id: int, apps: dict):
-    data = {}
-    if os.path.exists(APPS_FILE):
-        with open(APPS_FILE, "r") as f:
-            data = json.load(f)
-    data[str(guild_id)] = apps
-    with open(APPS_FILE, "w") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
+    _ensure_cache()
+    _apps_cache[str(guild_id)] = apps
+    _save_file(APPS_FILE, _apps_cache)
 
 
 # ─── Модальное окно анкеты ────────────────────────────────────────

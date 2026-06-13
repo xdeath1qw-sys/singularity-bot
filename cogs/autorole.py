@@ -6,23 +6,31 @@ import os
 
 CONFIG_FILE = "autorole_config.json"
 
+_config_cache: dict = {}
+
+def _load_file(path: str) -> dict:
+    if not os.path.exists(path):
+        return {}
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+def _save_file(path: str, data: dict):
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
 
 def load_config(guild_id: int) -> list:
-    if not os.path.exists(CONFIG_FILE):
-        return []
-    with open(CONFIG_FILE, "r") as f:
-        data = json.load(f)
-    return data.get(str(guild_id), [])
-
+    if not _config_cache:
+        _config_cache.update(_load_file(CONFIG_FILE))
+    return _config_cache.get(str(guild_id), [])
 
 def save_config(guild_id: int, roles: list):
-    data = {}
-    if os.path.exists(CONFIG_FILE):
-        with open(CONFIG_FILE, "r") as f:
-            data = json.load(f)
-    data[str(guild_id)] = roles
-    with open(CONFIG_FILE, "w") as f:
-        json.dump(data, f, indent=2)
+    if not _config_cache:
+        _config_cache.update(_load_file(CONFIG_FILE))
+    _config_cache[str(guild_id)] = roles
+    _save_file(CONFIG_FILE, _config_cache)
 
 
 class AutoRole(commands.Cog):
