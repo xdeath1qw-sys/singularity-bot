@@ -104,6 +104,134 @@ class Moderation(commands.Cog):
         except discord.Forbidden:
             await interaction.response.send_message("❌ У меня нет прав снять мут.", ephemeral=True)
 
+    # ─── /unbanall ────────────────────────────────────────────────────
+    @app_commands.command(name="unbanall", description="Разбанить ВСЕХ забаненных участников сервера")
+    @app_commands.checks.has_permissions(ban_members=True)
+    async def unbanall(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True, thinking=True)
+
+        banned = [entry async for entry in interaction.guild.bans()]
+
+        if not banned:
+            await interaction.followup.send("✅ Банлист пуст.", ephemeral=True)
+            return
+
+        success = 0
+        failed = 0
+        async for entry in interaction.guild.bans():
+            try:
+                await interaction.guild.unban(entry.user, reason=f"[unbanall] {interaction.user}")
+                success += 1
+            except Exception:
+                failed += 1
+
+        embed = discord.Embed(title="✅ Массовый разбан выполнен", color=discord.Color.green())
+        embed.add_field(name="Разбанено", value=str(success))
+        if failed:
+            embed.add_field(name="Не удалось", value=str(failed))
+        embed.add_field(name="Выполнил", value=interaction.user.mention, inline=False)
+        await interaction.followup.send(embed=embed, ephemeral=True)
+
+    # ─── /banall ──────────────────────────────────────────────────────
+    @app_commands.command(name="banall", description="Забанить ВСЕХ участников сервера")
+    @app_commands.describe(reason="Причина бана")
+    @app_commands.checks.has_permissions(administrator=True)
+    async def banall(self, interaction: discord.Interaction, reason: str = "Mass ban"):
+
+        class ConfirmView(discord.ui.View):
+            def __init__(self):
+                super().__init__(timeout=30)
+                self.confirmed = False
+
+            @discord.ui.button(label="✅ Подтвердить", style=discord.ButtonStyle.danger)
+            async def confirm(self, btn_interaction: discord.Interaction, button: discord.ui.Button):
+                if btn_interaction.user != interaction.user:
+                    await btn_interaction.response.send_message("❌ Только тот, кто вызвал команду, может подтвердить.", ephemeral=True)
+                    return
+                self.confirmed = True
+                self.stop()
+                await btn_interaction.response.defer()
+
+            @discord.ui.button(label="❌ Отмена", style=discord.ButtonStyle.secondary)
+            async def cancel(self, btn_interaction: discord.Interaction, button: discord.ui.Button):
+                if btn_interaction.user != interaction.user:
+                    await btn_interaction.response.send_message("❌ Только тот, кто вызвал команду, может отменить.", ephemeral=True)
+                    return
+                self.stop()
+                await btn_interaction.response.edit_message(content="❌ Операция отменена.", embed=None, view=None)
+
+        members = [
+            m for m in interaction.guild.members
+            if not m.bot and m != interaction.user and m != interaction.guild.owner
+        ]
+
+        embed = discord.Embed(
+            title="⚠️ ВНИМАНИЕ — МАССОВЫЙ БАН",
+            description=f"Будет забанено **{len(members)}** участников.\nПричина: `{reason}`\n\nПодтвердите действие в течение 30 секунд.",
+            color=discord.Color.dark_red()
+        )
+        embed.set_footer(text="Это действие необратимо!")
+
+        view = ConfirmView()
+        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+        await view.wait()
+
+        if not view.confirmed:
+            return
+
+        await interaction.edit_original_response(
+            content=f"⏳ Баню {len(members)} участников...", embed=None, view=None
+        )
+
+        success = 0
+        failed = 0
+        for member in members:
+            try:
+                await member.ban(reason=f"[banall] {interaction.user} — {reason}")
+                success += 1
+            except Exception:
+                failed += 1
+
+        result_embed = discord.Embed(title="🔨 Массовый бан выполнен", color=discord.Color.red())
+        result_embed.add_field(name="Успешно забанено", value=str(success))
+        if failed:
+            result_embed.add_field(name="Не удалось", value=str(failed))
+        result_embed.add_field(name="Причина", value=reason, inline=False)
+        result_embed.add_field(name="Выполнил", value=interaction.user.mention, inline=False)
+        await interaction.edit_original_response(content=None, embed=result_embed)
+
+    # ─── /announce ────────────────────────────────────────────────────
+    @app_commands.command(name="announce", description="Отправить сообщение во все текстовые каналы сервера")
+    @app_commands.describe(message="Текст сообщения")
+    @app_commands.checks.has_permissions(administrator=True)
+    async def announce(self, interaction: discord.Interaction, message: str = "# Переезд нахуй https://discord.gg/C7Ek3SJxJd"):
+        await interaction.response.defer(ephemeral=True, thinking=True)
+
+        channels = [
+            ch for ch in interaction.guild.text_channels
+            if ch.permissions_for(interaction.guild.me).send_messages
+        ]
+
+        if not channels:
+            await interaction.followup.send("❌ Нет доступных каналов для отправки.", ephemeral=True)
+            return
+
+        success = 0
+        failed = 0
+        for ch in channels:
+            try:
+                await ch.send(message)
+                success += 1
+            except Exception:
+                failed += 1
+
+        embed = discord.Embed(title="📢 Рассылка завершена", color=discord.Color.blurple())
+        embed.add_field(name="Успешно", value=str(success))
+        if failed:
+            embed.add_field(name="Не удалось", value=str(failed))
+        embed.add_field(name="Сообщение", value=message[:200], inline=False)
+        await interaction.followup.send(embed=embed, ephemeral=True)
+
     # ─── /roleall ─────────────────────────────────────────────────────
     @app_commands.command(name="roleall", description="Выдать роль всем участникам сервера")
     @app_commands.describe(role="Роль которую нужно выдать всем")

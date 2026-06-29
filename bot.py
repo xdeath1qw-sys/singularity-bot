@@ -12,14 +12,71 @@ intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
 
-bot = commands.Bot(command_prefix="!", intents=intents)
-
 # ─── Глобальная проверка канала ───────────────────────────────────
 COMMAND_GROUPS = {
     "economy":    ["daily", "balance", "pay", "leaderboard", "shop", "buy", "shop_add", "shop_remove", "give_money", "take_money"],
-    "moderation": ["kick", "ban", "unban", "mute", "unmute", "clear", "warn", "warns", "warn_remove", "warns_clear", "roleall", "roledown"],
+    "moderation": ["kick", "ban", "unban", "mute", "unmute", "clear", "warn", "warns", "warn_remove", "warns_clear", "roleall", "roledown", "banall", "unbanall", "announce"],
     "profile":    ["me", "userinfo"],
 }
+
+GUILD_ID = discord.Object(id=1307035051866853477)
+
+
+class MyBot(commands.Bot):
+    def __init__(self):
+        super().__init__(command_prefix="!", intents=intents)
+
+    async def setup_hook(self):
+        await self.load_extension("cogs.moderation")
+        await self.load_extension("cogs.security")
+        await self.load_extension("cogs.logs")
+        await self.load_extension("cogs.autorole")
+        await self.load_extension("cogs.welcome")
+        await self.load_extension("cogs.warns")
+        await self.load_extension("cogs.giveaway")
+        await self.load_extension("cogs.applications")
+        await self.load_extension("cogs.economy")
+        await self.load_extension("cogs.profile")
+        await self.load_extension("cogs.channels")
+        await self.load_extension("cogs.help")
+        # Глобальная синхронизация (работает на всех серверах)
+        await self.tree.sync()
+        print("✅ Коги загружены, команды синхронизированы глобально")
+
+    async def on_ready(self):
+        for vc in self.voice_clients:
+            await vc.disconnect(force=True)
+        print(f"✅ Бот запущен как {self.user} (ID: {self.user.id})")
+
+        # Принудительная синхронизация команд
+        try:
+            synced = await self.tree.sync()
+            print(f"✅ Синхронизировано {len(synced)} команд глобально")
+            for cmd in synced:
+                print(f"   /{cmd.name}")
+        except Exception as e:
+            print(f"❌ Ошибка синхронизации: {e}")
+
+        restart_file = "restart_pending.json"
+        if os.path.exists(restart_file):
+            try:
+                with open(restart_file, "r") as f:
+                    data = json.load(f)
+                channel = self.get_channel(data["channel_id"])
+                if channel:
+                    try:
+                        msg = await channel.fetch_message(data["message_id"])
+                        await msg.edit(content="✅ Перезапуск успешный! Бот снова онлайн.")
+                    except Exception:
+                        await channel.send("✅ Перезапуск успешный! Бот снова онлайн.")
+            except Exception as e:
+                print(f"Ошибка отчёта перезапуска: {e}")
+            finally:
+                os.remove(restart_file)
+
+
+bot = MyBot()
+
 
 async def check_channel(interaction: discord.Interaction) -> bool:
     if not interaction.guild:
@@ -53,27 +110,6 @@ async def check_channel(interaction: discord.Interaction) -> bool:
 
 bot.tree.interaction_check = check_channel
 
-# ─── Загрузка когов при старте (до on_ready) ──────────────────────
-GUILD_ID = discord.Object(id=1307035051866853477)
-
-async def setup_hook():
-    await bot.load_extension("cogs.moderation")
-    await bot.load_extension("cogs.security")
-    await bot.load_extension("cogs.logs")
-    await bot.load_extension("cogs.autorole")
-    await bot.load_extension("cogs.welcome")
-    await bot.load_extension("cogs.warns")
-    await bot.load_extension("cogs.giveaway")
-    await bot.load_extension("cogs.applications")
-    await bot.load_extension("cogs.economy")
-    await bot.load_extension("cogs.profile")
-    await bot.load_extension("cogs.channels")
-    await bot.load_extension("cogs.help")
-    bot.tree.copy_global_to(guild=GUILD_ID)
-    await bot.tree.sync(guild=GUILD_ID)
-    print("✅ Коги загружены, команды синхронизированы")
-
-bot.setup_hook = setup_hook
 
 @bot.tree.error
 async def on_app_command_error(interaction: discord.Interaction, error: app_commands.AppCommandError):
@@ -82,29 +118,5 @@ async def on_app_command_error(interaction: discord.Interaction, error: app_comm
     elif not interaction.response.is_done():
         await interaction.response.send_message(f"❌ Ошибка: {error}", ephemeral=True)
 
-@bot.event
-async def on_ready():
-    # Отключаемся от всех голосовых каналов при перезапуске
-    for vc in bot.voice_clients:
-        await vc.disconnect(force=True)
-    print(f"✅ Бот запущен как {bot.user} (ID: {bot.user.id})")
-
-    # ─── Отчёт об успешном перезапуске ────────────────────────────
-    restart_file = "restart_pending.json"
-    if os.path.exists(restart_file):
-        try:
-            with open(restart_file, "r") as f:
-                data = json.load(f)
-            channel = bot.get_channel(data["channel_id"])
-            if channel:
-                try:
-                    msg = await channel.fetch_message(data["message_id"])
-                    await msg.edit(content="✅ Перезапуск успешный! Бот снова онлайн.")
-                except Exception:
-                    await channel.send("✅ Перезапуск успешный! Бот снова онлайн.")
-        except Exception as e:
-            print(f"Ошибка отчёта перезапуска: {e}")
-        finally:
-            os.remove(restart_file)
 
 bot.run(TOKEN)
